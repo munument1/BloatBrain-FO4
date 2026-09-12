@@ -1,7 +1,12 @@
 """Localhost TCP bridge for BloatBrain-FO4.
 
-The server accepts persistent TCP connections. Each newline-delimited JSON
-observation produces exactly one newline-delimited JSON action response.
+The server accepts persistent TCP connections and supports both protocol paths:
+
+- v1 observation -> discrete ActionCommand (debugging / transport validation)
+- v2 SensoryFrame -> continuous MotorCommand (intended FlyBrain boundary)
+
+Each newline-delimited JSON request produces exactly one newline-delimited JSON
+response.
 
 Usage:
 
@@ -12,12 +17,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import socketserver
 from typing import Final
 
+from flybrain.continuous_mock import choose_motor
+
 from .mock_controller import choose_action
 from .protocol import Observation
+from .protocol_v2 import SensoryFrame
 
 
 DEFAULT_HOST: Final = "127.0.0.1"
@@ -25,6 +34,23 @@ DEFAULT_PORT: Final = 8765
 MAX_LINE_BYTES: Final = 64 * 1024
 
 LOGGER = logging.getLogger("bloatbrain.bridge")
+
+
+def dispatch_message(text: str) -> str:
+    """Route one JSON message to the matching protocol controller."""
+
+    payload = json.loads(text)
+    version = payload.get("protocol_version")
+
+    if version == 1:
+        observation = Observation.from_dict(payload)
+        return choose_action(observation).to_json()
+
+    if version == 2:
+        frame = SensoryFrame.from_dict(payload)
+        return choose_motor(frame).to_json()
+
+    raise ValueError(f"unsupported protocol version: {version!r}")
 
 
 class BloatBrainRequestHandler(socketserver.StreamRequestHandler):
@@ -47,11 +73,10 @@ class BloatBrainRequestHandler(socketserver.StreamRequestHandler):
                 if not text:
                     continue
 
-                observation = Observation.from_json(text)
-                command = choose_action(observation)
-                self.wfile.write(command.to_json().encode("utf-8") + b"\n")
+                response = dispatch_message(text)
+                self.wfile.write(response.encode("utf-8") + b"\n")
                 self.wfile.flush()
-        except (UnicodeDecodeError, ValueError, KeyError) as exc:
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, KeyError) as exc:
             LOGGER.warning("closing malformed client %s:%s: %s", *peer, exc)
         except (ConnectionError, OSError) as exc:
             LOGGER.info("client %s:%s disconnected: %s", *peer, exc)
