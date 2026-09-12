@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# C/C++ / CMake
+build/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.sln
+*.vcxproj*
+
+# Visual Studio
+.vs/
+*.user
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Runtime data / logs
+logs/
+*.log
+captures/
+
+# Local datasets / large neural assets
+# Keep downloaded connectome datasets out of Git history by default.
+data/
+models/
