@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "BridgeClient.h"
+#include "CompanionContract.h"
 
 namespace
 {
@@ -48,8 +49,11 @@ namespace
 
             REX::DEBUG("BloatBrain smoke action: {}", *response);
 
-            // Replace this synthetic observation loop with real Bloatfly sampling.
-            // All blocking socket I/O intentionally stays off Fallout 4's game thread.
+            // Replace this synthetic observation loop with real sampling from the
+            // single persistent actor named by CompanionContract::kCompanionRefEditorID.
+            // Never scan/control every actor that happens to use the Bloatfly race.
+            // All Fallout 4 object access must stay on the game thread; blocking
+            // socket I/O intentionally stays on this worker thread.
             std::this_thread::sleep_for(kSmokeTickDelay);
         }
 
@@ -62,6 +66,10 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface* a_f4se)
     F4SE::Init(a_f4se);
 
     REX::INFO("BloatBrain-FO4 loading");
+    REX::INFO(
+        "BloatBrain companion contract: {}",
+        BloatBrain::CompanionContract::kCompanionRefEditorID);
+
     g_bridgeThread = std::jthread(BridgeWorker);
     REX::INFO("BloatBrain bridge worker started ({}:{})", kBridgeHost, kBridgePort);
 
