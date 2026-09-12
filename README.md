@@ -2,19 +2,13 @@
 
 Experimental Fallout 4 modding project that drives a single companion Bloatfly with an external **Drosophila-inspired connectome/neural simulation** instead of relying only on vanilla game AI.
 
-> **Status:** early research prototype — Python bridge tested, F4SE transport scaffold builds successfully in Windows CI, and the companion ESP contract is now defined.
+> **Status:** early research prototype — Python bridge tested, F4SE transport scaffold builds successfully in Windows CI, the companion ESP contract is defined, and protocol-v2 continuous sensorimotor control is now implemented at the bridge boundary.
 
 ## Goal
 
 The mod adds **one unique Bloatfly companion** that can be recruited at the Red Rocket truck stop near Sanctuary. Only that persistent actor is neural-controlled; wild Bloatflies remain completely vanilla.
 
-The intended player-facing loop is:
-
-1. Find the unique Bloatfly at Red Rocket.
-2. Activate it and recruit it.
-3. While the external bridge is online, BloatBrain/FlyBrain chooses its movement and combat actions.
-4. If the bridge disconnects, a safe fallback follow package takes over.
-5. Dismissing the companion sends the same actor back to Red Rocket.
+The intended result is not merely a companion whose decisions come from a network. Its **visible movement should feel insect-like**: continuous micro-corrections, overshoot, abrupt saccade-like turns, looming-driven escape, imperfect reacquisition and occasional face-level hovering should emerge from the closed sensorimotor loop rather than from scripted comedy behavior.
 
 ## Companion contract
 
@@ -38,27 +32,35 @@ See [`esp/README.md`](esp/README.md) and [`esp/records.md`](esp/records.md) for 
 Red Rocket
    |
    v
-BB_FlyCompanionREF (persistent unique actor)
+BB_FlyCompanionREF
    |
-   | game-state observations
+   | local sensory evidence
    v
 F4SE / CommonLibF4 plugin
    |
    | persistent localhost TCP + JSONL
    v
-Bridge (127.0.0.1:8765)
+Bridge
    |
-   | sensory encoding
+   | protocol-v2 SensoryFrame
    v
-FlyBrain simulation
+FlyBrain / MaleCNS backend
    |
-   | motor activity / action scores
+   | neural motor activity
    v
-Action decoder
+continuous motor aggregation
+   |
+   | yaw / pitch / lift / thrust / attack_drive
+   v
+F4SE flight actuator
    |
    v
-F4SE plugin -> BB_FlyCompanionREF behavior
+BB_FlyCompanionREF
+   |
+   +---- changed world becomes the next sensory frame
 ```
+
+The final neural path deliberately avoids semantic movement orders such as `APPROACH_TARGET` or player GPS coordinates. The network should receive sensory evidence and produce motor drive.
 
 ## Repository layout
 
@@ -66,12 +68,40 @@ F4SE plugin -> BB_FlyCompanionREF behavior
 BloatBrain-FO4/
 ├─ esp/           # ESP record specification + Papyrus recruitment source
 ├─ f4se-plugin/   # Fallout 4 integration + WinSock client
-├─ bridge/        # TCP server and observation/action protocol
-├─ flybrain/      # neural/connectome simulation adapter
+├─ bridge/        # v1 debug protocol + v2 continuous sensorimotor protocol
+├─ flybrain/      # neural/connectome simulation adapters
 ├─ configs/       # sensory and motor mappings
-├─ tests/         # protocol and TCP round-trip tests
-└─ docs/          # architecture and research notes
+├─ tests/         # protocol and transport tests
+└─ docs/          # architecture and control notes
 ```
+
+## Protocols
+
+### Protocol v1 — debugging only
+
+The original discrete action set (`TURN_LEFT`, `APPROACH_TARGET`, `ATTACK`, etc.) remains useful for validating transport, timeouts and basic game integration.
+
+It is **not** the intended final neural-control interface.
+
+### Protocol v2 — intended FlyBrain path
+
+Sensory inputs:
+
+- optic flow: left / right / up / down
+- looming expansion: left / center / right
+- familiar-player cue: left / center / right
+- damage signal
+- health fraction
+
+Motor outputs:
+
+- `yaw` in `[-1, 1]`
+- `pitch` in `[-1, 1]`
+- `lift` in `[-1, 1]`
+- `thrust` in `[0, 1]`
+- `attack_drive` in `[0, 1]`
+
+See [`docs/continuous-control.md`](docs/continuous-control.md) and [`configs/sensory_motor_v2.example.json`](configs/sensory_motor_v2.example.json).
 
 ## Quick bridge test
 
@@ -79,67 +109,46 @@ Python 3.11+:
 
 ```powershell
 python -m pip install -e ".[dev]"
-python -m bridge.tcp_server
-```
-
-The bridge listens on `127.0.0.1:8765`. It currently routes observations to the deterministic mock controller so the Fallout 4 integration can be tested before the real neural backend exists.
-
-Run the automated protocol/TCP tests with:
-
-```powershell
 pytest
 ```
 
-The F4SE worker currently sends a synthetic protocol-v1 observation once per second and logs the returned action. This temporary smoke loop will be replaced by observations from `BB_FlyCompanionREF`.
+`flybrain/continuous_mock.py` is a deterministic validation backend for protocol v2. It is not the biological model; it exists so the Fallout 4 side can be built around continuous sensory/motor channels before MaleCNS integration.
+
+The current F4SE worker still uses the protocol-v1 synthetic smoke exchange. Replacing that with real `BB_FlyCompanionREF` sensory sampling and protocol-v2 motor actuation is the next game-side milestone.
 
 The Windows CI workflow compiles the plugin and publishes `BloatBrainFO4.dll` as the `BloatBrainFO4-CI` workflow artifact on successful builds.
 
-See [`f4se-plugin/README.md`](f4se-plugin/README.md) for the CommonLibF4/XMake setup.
+## Behavioral target
 
-## MVP action space
+When neural control is online, the companion should not behave like a waypoint-following drone. Desired observable behavior includes:
 
-The first prototype uses a deliberately small discrete action set:
+- imperfect fixation on the player
+- frequent small hover corrections
+- sudden direction changes from asymmetric visual motion
+- side/vertical escape from looming stimuli
+- overshoot and reacquisition
+- temporary searching when the player disappears behind geometry
+- irregular following distance, including occasionally getting directly in the player's face
 
-- `IDLE`
-- `FORWARD`
-- `TURN_LEFT`
-- `TURN_RIGHT`
-- `ASCEND`
-- `DESCEND`
-- `APPROACH_TARGET`
-- `EVADE_TARGET`
-- `ATTACK`
-
-## MVP observations
-
-The Fallout 4 side should initially expose only information that is easy to validate:
-
-- target visible / not visible
-- target distance
-- target bearing relative to the Bloatfly
-- relative target elevation
-- Bloatfly health fraction
-- recent damage event
-- combat state
-
-Later versions can experiment with richer visual, spatial, and reward signals.
+The goal is for players to recognize the neural NPC by **how it moves**, not by an icon or visual effect.
 
 ## Design principles
 
 1. **Get the loop working before increasing biological complexity.**
 2. Control exactly one explicit companion reference; never hijack wild Bloatflies.
 3. Keep Fallout 4 integration and neural simulation loosely coupled.
-4. Make sensory/motor mappings configurable instead of hard-coding experiments.
-5. Log every observation and selected action so behavior can be reproduced.
-6. Treat biological fidelity as an experimental question, not a marketing claim.
-7. Never block Fallout 4's main thread on external neural computation or socket I/O.
-8. On external-controller failure, immediately fall back to safe vanilla package behavior.
+4. Prefer sensory evidence over pre-decoded semantic movement instructions.
+5. Prefer continuous motor drive over a small discrete game-AI action menu.
+6. Log every sensory frame and motor response so behavior can be reproduced.
+7. Treat biological fidelity as an experimental question, not a marketing claim.
+8. Never block Fallout 4's main thread on external neural computation or socket I/O.
+9. On external-controller failure, immediately fall back to safe vanilla package behavior.
 
 ## Planned phases
 
 ### Phase 0 — Scaffold
 
-- [x] define observation/action protocol
+- [x] define protocol-v1 observation/action debugging path
 - [x] create local mock controller
 - [x] implement persistent localhost TCP bridge
 - [x] test multi-tick TCP round trips
@@ -149,6 +158,8 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 - [x] add a synthetic F4SE-to-Python smoke round-trip loop
 - [x] define the unique Red Rocket companion ESP contract
 - [x] add prototype recruitment/dismissal Papyrus source
+- [x] define protocol-v2 continuous sensory/motor messages
+- [x] add a continuous validation backend and tests
 
 ### Phase 1 — Fallout 4 companion control loop
 
@@ -156,31 +167,33 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 - [ ] place `BB_FlyCompanionREF` at Red Rocket and verify recruitment/dismissal
 - [ ] load the F4SE plugin in Fallout 4 and verify the smoke loop in logs
 - [ ] resolve `BB_FlyCompanionREF` after game data is ready
-- [ ] read target/game state on the game thread
-- [ ] serialize protocol-v1 observations from the actor
-- [ ] receive and validate matching action commands
+- [ ] sample protocol-v2 sensory channels on the game thread
+- [ ] receive and validate matching continuous `MotorCommand`s
 - [ ] set/clear `BB_BridgeOnline` on connectivity changes
 - [ ] constrain vanilla decision-making while neural control is online
-- [ ] apply returned actions
-- [ ] recover safely on timeout/disconnect
+- [ ] apply continuous yaw/pitch/lift/thrust safely to the flying actor
+- [ ] gate the Bloatfly attack animation/projectile from `attack_drive`
+- [ ] recover safely on stale command/timeout/disconnect
 
 ### Phase 2 — FlyBrain integration
 
 - [ ] load/connect to the selected Drosophila neural model
-- [ ] map game observations to sensory stimulation
-- [ ] aggregate candidate motor-neuron activity
-- [ ] decode activity into the MVP action space
+- [ ] map protocol-v2 sensory channels to neural stimulation
+- [ ] aggregate candidate descending/motor-neuron populations
+- [ ] map neural activity directly to continuous motor channels
+- [ ] remove the continuous mock from the production control path
 
 ### Phase 3 — Experiments
 
 - compare fallback AI vs FlyBrain behavior
+- measure trajectory, hover jitter, saccades and reacquisition behavior
 - test different sensory mappings
-- record trajectories and action distributions
+- record neural/motor activity alongside game trajectories
 - explore reward/modulatory signals only after the base loop is stable
 
 ## Important note
 
-This project does **not** claim to reproduce a conscious fly or perfectly simulate a biological nervous system. A connectome provides wiring information; simulation dynamics, sensory encoding, neuromodulation, and motor decoding all require modeling assumptions.
+This project does **not** claim to reproduce a conscious fly or perfectly simulate a biological nervous system. A connectome provides wiring information; simulation dynamics, sensory encoding, neuromodulation, body dynamics and motor decoding all require modeling assumptions.
 
 ## License
 
