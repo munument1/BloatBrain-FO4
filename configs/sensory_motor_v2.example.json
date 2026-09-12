@@ -1,0 +1,39 @@
+{
+  "protocol_version": 2,
+  "controller_hz": 20,
+  "sensory": {
+    "optic_flow": {
+      "channels": ["left", "right", "up", "down"],
+      "normalize_to": [0.0, 1.0]
+    },
+    "looming": {
+      "channels": ["left", "center", "right"],
+      "normalize_to": [0.0, 1.0]
+    },
+    "familiar_cue": {
+      "channels": ["left", "center", "right"],
+      "description": "Perceptual salience of the recruited player's visual/learned cue; never a GPS bearing",
+      "normalize_to": [0.0, 1.0]
+    },
+    "damage_signal": {
+      "normalize_to": [0.0, 1.0],
+      "decay_ms": 500
+    },
+    "health_fraction": {
+      "normalize_to": [0.0, 1.0]
+    }
+  },
+  "motor": {
+    "yaw": [-1.0, 1.0],
+    "pitch": [-1.0, 1.0],
+    "lift": [-1.0, 1.0],
+    "thrust": [0.0, 1.0],
+    "attack_drive": [0.0, 1.0]
+  },
+  "game_adapter": {
+    "smoothing_ms": 75,
+    "attack_drive_threshold": 0.72,
+    "max_command_age_ms": 150,
+    "disconnect_behavior": "ESP_FOLLOW_FALLBACK"
+  }
+}
