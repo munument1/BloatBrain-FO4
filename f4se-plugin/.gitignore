@@ -1,0 +1,5 @@
+lib/commonlibf4/
+build/
+.vs/
+vsxmake*/
+compile_commands.json
