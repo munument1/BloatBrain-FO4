@@ -1,21 +1,44 @@
 # BloatBrain-FO4
 
-Experimental Fallout 4 modding project that drives a Bloatfly with an external **Drosophila-inspired connectome/neural simulation** instead of relying only on the vanilla game AI.
+Experimental Fallout 4 modding project that drives a single companion Bloatfly with an external **Drosophila-inspired connectome/neural simulation** instead of relying only on vanilla game AI.
 
-> **Status:** early research prototype — Python bridge tested, F4SE transport scaffold builds successfully in Windows CI; in-game loading is the next verification step.
+> **Status:** early research prototype — Python bridge tested, F4SE transport scaffold builds successfully in Windows CI, and the companion ESP contract is now defined.
 
 ## Goal
 
-Build a bridge between Fallout 4 and an external fly-brain simulation so that a Bloatfly can perceive a simplified version of the game world and receive movement/combat decisions from neural activity.
+The mod adds **one unique Bloatfly companion** that can be recruited at the Red Rocket truck stop near Sanctuary. Only that persistent actor is neural-controlled; wild Bloatflies remain completely vanilla.
 
-The first milestone is intentionally small:
+The intended player-facing loop is:
 
-> Replace the decision-making of **one test Bloatfly** with an external controller that can choose basic actions such as approach, evade, turn, attack, and idle.
+1. Find the unique Bloatfly at Red Rocket.
+2. Activate it and recruit it.
+3. While the external bridge is online, BloatBrain/FlyBrain chooses its movement and combat actions.
+4. If the bridge disconnects, a safe fallback follow package takes over.
+5. Dismissing the companion sends the same actor back to Red Rocket.
+
+## Companion contract
+
+The ESP and DLL share stable EditorIDs rather than hard-coded FormIDs:
+
+- `BB_FlyCompanion` — unique actor base
+- `BB_FlyCompanionREF` — persistent placed companion reference
+- `BB_NeuralControlled` — neural-control keyword
+- `BB_RedRocketHomeMarker` — dismissed/home marker
+- `BB_Recruited` — recruitment state global
+- `BB_BridgeOnline` — F4SE controller connectivity global
+- `BB_CompanionQuest` — companion state quest
+
+The F4SE plugin must never select actors simply because they use the Bloatfly race.
+
+See [`esp/README.md`](esp/README.md) and [`esp/records.md`](esp/records.md) for the CK/xEdit implementation contract.
 
 ## Architecture
 
 ```text
-Fallout 4
+Red Rocket
+   |
+   v
+BB_FlyCompanionREF (persistent unique actor)
    |
    | game-state observations
    v
@@ -34,13 +57,14 @@ FlyBrain simulation
 Action decoder
    |
    v
-F4SE plugin -> Bloatfly movement / combat behavior
+F4SE plugin -> BB_FlyCompanionREF behavior
 ```
 
 ## Repository layout
 
 ```text
 BloatBrain-FO4/
+├─ esp/           # ESP record specification + Papyrus recruitment source
 ├─ f4se-plugin/   # Fallout 4 integration + WinSock client
 ├─ bridge/        # TCP server and observation/action protocol
 ├─ flybrain/      # neural/connectome simulation adapter
@@ -66,7 +90,7 @@ Run the automated protocol/TCP tests with:
 pytest
 ```
 
-The F4SE worker currently sends a synthetic protocol-v1 observation once per second and logs the returned action. This is a temporary smoke loop that will be replaced by observations from a real Bloatfly actor.
+The F4SE worker currently sends a synthetic protocol-v1 observation once per second and logs the returned action. This temporary smoke loop will be replaced by observations from `BB_FlyCompanionREF`.
 
 The Windows CI workflow compiles the plugin and publishes `BloatBrainFO4.dll` as the `BloatBrainFO4-CI` workflow artifact on successful builds.
 
@@ -103,11 +127,13 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 ## Design principles
 
 1. **Get the loop working before increasing biological complexity.**
-2. Keep Fallout 4 integration and neural simulation loosely coupled.
-3. Make sensory/motor mappings configurable instead of hard-coding experiments.
-4. Log every observation and selected action so behavior can be reproduced.
-5. Treat biological fidelity as an experimental question, not a marketing claim.
-6. Never block Fallout 4's main thread on external neural computation or socket I/O.
+2. Control exactly one explicit companion reference; never hijack wild Bloatflies.
+3. Keep Fallout 4 integration and neural simulation loosely coupled.
+4. Make sensory/motor mappings configurable instead of hard-coding experiments.
+5. Log every observation and selected action so behavior can be reproduced.
+6. Treat biological fidelity as an experimental question, not a marketing claim.
+7. Never block Fallout 4's main thread on external neural computation or socket I/O.
+8. On external-controller failure, immediately fall back to safe vanilla package behavior.
 
 ## Planned phases
 
@@ -121,15 +147,20 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 - [x] move blocking bridge I/O to a background worker
 - [x] compile the F4SE plugin in Windows CI
 - [x] add a synthetic F4SE-to-Python smoke round-trip loop
+- [x] define the unique Red Rocket companion ESP contract
+- [x] add prototype recruitment/dismissal Papyrus source
 
-### Phase 1 — Fallout 4 control loop
+### Phase 1 — Fallout 4 companion control loop
 
+- [ ] build `BloatBrainFO4.esp` from the record specification
+- [ ] place `BB_FlyCompanionREF` at Red Rocket and verify recruitment/dismissal
 - [ ] load the F4SE plugin in Fallout 4 and verify the smoke loop in logs
-- [ ] detect a designated Bloatfly
-- [ ] read target/game state
+- [ ] resolve `BB_FlyCompanionREF` after game data is ready
+- [ ] read target/game state on the game thread
 - [ ] serialize protocol-v1 observations from the actor
 - [ ] receive and validate matching action commands
-- [ ] disable or constrain vanilla decision-making for the test actor
+- [ ] set/clear `BB_BridgeOnline` on connectivity changes
+- [ ] constrain vanilla decision-making while neural control is online
 - [ ] apply returned actions
 - [ ] recover safely on timeout/disconnect
 
@@ -142,7 +173,7 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 
 ### Phase 3 — Experiments
 
-- compare vanilla AI vs FlyBrain behavior
+- compare fallback AI vs FlyBrain behavior
 - test different sensory mappings
 - record trajectories and action distributions
 - explore reward/modulatory signals only after the base loop is stable
