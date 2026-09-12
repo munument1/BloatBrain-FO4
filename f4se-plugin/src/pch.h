@@ -1,11 +1,11 @@
 #pragma once
 
-// WinSock2 must be included before Windows headers pulled in by F4SE/CommonLibF4.
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
 #include <RE/Fallout.h>
 #include <F4SE/F4SE.h>
+
+// CommonLibF4 requires Windows API headers to be included after CommonLib.
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 
 #include <atomic>
 #include <chrono>
