@@ -1,0 +1,38 @@
+name: F4SE build
+
+on:
+  push:
+    paths:
+      - "f4se-plugin/**"
+      - ".github/workflows/f4se-build.yml"
+  pull_request:
+    paths:
+      - "f4se-plugin/**"
+      - ".github/workflows/f4se-build.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up XMake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Fetch CommonLibF4
+        shell: pwsh
+        run: ./f4se-plugin/bootstrap-commonlib.ps1
+
+      - name: Configure
+        shell: pwsh
+        working-directory: f4se-plugin
+        run: xmake f -m releasedbg -y
+
+      - name: Build
+        shell: pwsh
+        working-directory: f4se-plugin
+        run: xmake build -y
