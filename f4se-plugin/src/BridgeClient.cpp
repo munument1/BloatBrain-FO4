@@ -13,7 +13,7 @@ namespace BloatBrain
         WSADATA data{};
         winsockReady_ = WSAStartup(MAKEWORD(2, 2), &data) == 0;
         if (!winsockReady_) {
-            REX::ERROR("WSAStartup failed: {}", WSAGetLastError());
+            REX::WARN("WSAStartup failed: {}", WSAGetLastError());
         }
     }
 
