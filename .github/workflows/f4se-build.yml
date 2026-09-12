@@ -37,6 +37,13 @@ jobs:
         working-directory: f4se-plugin
         run: xmake build -y
 
+      - name: Run protocol v2 C++ tests
+        shell: pwsh
+        working-directory: f4se-plugin
+        run: |
+          xmake build -y ProtocolV2Tests
+          xmake run ProtocolV2Tests
+
       - name: Stage plugin DLL
         shell: pwsh
         run: |

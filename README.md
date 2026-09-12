@@ -160,6 +160,7 @@ The goal is for players to recognize the neural NPC by **how it moves**, not by 
 - [x] add prototype recruitment/dismissal Papyrus source
 - [x] define protocol-v2 continuous sensory/motor messages
 - [x] add a continuous validation backend and tests
+- [x] mirror protocol-v2 types, JSON validation and latest-value mailboxes in pure C++
 
 ### Phase 1 — Fallout 4 companion control loop
 
