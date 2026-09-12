@@ -10,6 +10,6 @@ if (Test-Path $commonLibDir) {
 }
 
 New-Item -ItemType Directory -Force -Path $libDir | Out-Null
-Write-Host 'Cloning libxse/commonlibf4...'
-git clone --depth 1 https://github.com/libxse/commonlibf4 $commonLibDir
+Write-Host 'Cloning libxse/commonlibf4 and its submodules...'
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/libxse/commonlibf4 $commonLibDir
 Write-Host 'CommonLibF4 ready.'
