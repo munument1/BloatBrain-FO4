@@ -77,3 +77,11 @@ When the F4SE plugin loads, its worker thread attempts to connect to that endpoi
 8. expand to the full MVP action set
 
 No neural-model code should live in the plugin. The game-facing layer only implements transport, observation collection, and action execution.
+
+## Game-thread integration
+
+After F4SE reports that game data is ready, the plugin resolves only
+`BB_FlyCompanionREF` by EditorID (never by a load-order-dependent FormID and
+never by scanning the Bloatfly race). Network state changes are posted through
+the F4SE task interface before `BB_BridgeOnline` is changed, so fallback package
+conditions are always mutated on the game thread.
