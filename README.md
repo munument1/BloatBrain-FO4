@@ -2,7 +2,7 @@
 
 Experimental Fallout 4 modding project that drives a Bloatfly with an external **Drosophila-inspired connectome/neural simulation** instead of relying only on the vanilla game AI.
 
-> **Status:** early research prototype — localhost bridge and F4SE transport scaffold implemented
+> **Status:** early research prototype — Python bridge tested, F4SE transport scaffold builds successfully in Windows CI; in-game loading is the next verification step.
 
 ## Goal
 
@@ -66,6 +66,10 @@ Run the automated protocol/TCP tests with:
 pytest
 ```
 
+The F4SE worker currently sends a synthetic protocol-v1 observation once per second and logs the returned action. This is a temporary smoke loop that will be replaced by observations from a real Bloatfly actor.
+
+The Windows CI workflow compiles the plugin and publishes `BloatBrainFO4.dll` as the `BloatBrainFO4-CI` workflow artifact on successful builds.
+
 See [`f4se-plugin/README.md`](f4se-plugin/README.md) for the CommonLibF4/XMake setup.
 
 ## MVP action space
@@ -115,13 +119,15 @@ Later versions can experiment with richer visual, spatial, and reward signals.
 - [x] test multi-tick TCP round trips
 - [x] create F4SE/CommonLibF4 transport scaffold
 - [x] move blocking bridge I/O to a background worker
+- [x] compile the F4SE plugin in Windows CI
+- [x] add a synthetic F4SE-to-Python smoke round-trip loop
 
 ### Phase 1 — Fallout 4 control loop
 
-- [ ] build/load the F4SE plugin in Fallout 4
+- [ ] load the F4SE plugin in Fallout 4 and verify the smoke loop in logs
 - [ ] detect a designated Bloatfly
 - [ ] read target/game state
-- [ ] serialize protocol-v1 observations
+- [ ] serialize protocol-v1 observations from the actor
 - [ ] receive and validate matching action commands
 - [ ] disable or constrain vanilla decision-making for the test actor
 - [ ] apply returned actions
