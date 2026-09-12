@@ -36,3 +36,20 @@ jobs:
         shell: pwsh
         working-directory: f4se-plugin
         run: xmake build -y
+
+      - name: Stage plugin DLL
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path ./f4se-plugin/build -Recurse -Filter BloatBrainFO4.dll | Select-Object -First 1
+          if (-not $plugin) {
+            throw "BloatBrainFO4.dll was not found after the build"
+          }
+          New-Item -ItemType Directory -Force -Path ./artifact | Out-Null
+          Copy-Item $plugin.FullName ./artifact/BloatBrainFO4.dll
+
+      - name: Upload plugin DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: BloatBrainFO4-CI
+          path: artifact/BloatBrainFO4.dll
+          if-no-files-found: error
