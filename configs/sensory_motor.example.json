@@ -1,0 +1,45 @@
+{
+  "protocol_version": 1,
+  "controller_hz": 10,
+  "sensory": {
+    "target_visible": {
+      "enabled": true
+    },
+    "target_distance": {
+      "enabled": true,
+      "clip_game_units": 3000.0,
+      "normalize_to": [0.0, 1.0]
+    },
+    "target_bearing_deg": {
+      "enabled": true,
+      "clip_deg": 180.0,
+      "normalize_to": [-1.0, 1.0]
+    },
+    "target_elevation_deg": {
+      "enabled": true,
+      "clip_deg": 90.0,
+      "normalize_to": [-1.0, 1.0]
+    },
+    "health_fraction": {
+      "enabled": true
+    },
+    "recently_damaged": {
+      "enabled": true,
+      "hold_ms": 500
+    }
+  },
+  "motor": {
+    "actions": [
+      "IDLE",
+      "FORWARD",
+      "TURN_LEFT",
+      "TURN_RIGHT",
+      "ASCEND",
+      "DESCEND",
+      "APPROACH_TARGET",
+      "EVADE_TARGET",
+      "ATTACK"
+    ],
+    "minimum_confidence": 0.5
+  }
+}
